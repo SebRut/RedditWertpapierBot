@@ -1,4 +1,6 @@
 import logging
+import time
+from pathlib import Path
 
 import praw
 import regex
@@ -30,6 +32,11 @@ Replikationsmethode | {replication_status}
 BOT_DISCLAIMER = """
 """
 
+# TODO: load dynamically
+PROCESSING_INTERVAL = 30
+SUBMISSION_LIMIT = 25
+PRODUCTION = False
+
 # configure logging
 handler = logging.StreamHandler()
 handler.setLevel(logging.DEBUG)
@@ -44,12 +51,45 @@ praw_logger.addHandler(handler)
 
 # add self logger
 logger = logging.getLogger("wertpapierbot")
-logger.setLevel(logging.WARN)
+if PRODUCTION:
+    logger.setLevel(logging.INFO)
+else:
+    logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
-# authenticate against reddit api and obtain an Reddit instance and ref to finanzen subreddit
-reddit = praw.Reddit("wertpapierbot", user_agent=USER_AGENT)
-finanzen_sub = reddit.subreddit("finanzen")
+reddit = None
+subreddit = None
+
+
+def setup_reddit():
+    global reddit
+    global subreddit
+    # authenticate against reddit api and obtain an Reddit instance and ref to finanzen subreddit
+    # get configuration from praw.INI if existing else try getting data from env vars
+    if Path("praw.INI").is_file():
+        logger.info("Getting new reddit instance using data from praw.INI")
+        reddit = praw.Reddit("wertpapierbot", user_agent=USER_AGENT)
+    else:
+        # TODO: read env vars
+        if False:
+            logger.info("Getting new reddit instance using data from environment variables")
+            # TODO: set up reddit instance
+            pass
+        else:
+            logger.error("No configuration found")
+            exit(-1)
+    # basic reddit instance checks
+    if not reddit:
+        logger.error("Reddit instance is not initialized")
+        exit(-1)
+    if reddit.read_only:
+        logger.error("Reddit instance is read only")
+        exit(-1)
+    # get subreddit for processing
+    subreddit = reddit.subreddit("finanzen")
+    if not subreddit:
+        logger.error("Subreddit instance is not initialized")
+        exit(-1)
 
 
 def get_fund_data(identifier):
@@ -159,11 +199,16 @@ def handle_submission(sub):
 
 
 def main_loop():
-    # parse the last 25 submissions in /r/finanzen
-    for sub in finanzen_sub.new(limit=25):
-        logger.debug("Parsing submission {}".format(sub))
-        handle_submission(sub)
+    logger.info("Main loop started")
+    while True:
+        # parse the last 25 submissions in /r/finanzen
+        for sub in subreddit.new(limit=SUBMISSION_LIMIT):
+            logger.debug("Parsing submission {}".format(sub))
+            handle_submission(sub)
+        time.sleep(PROCESSING_INTERVAL)
 
 
-main_loop()
-# handle_stock_requests("abc", ["ETF110", "FR0010315770", "LU0468897110"])
+if __name__ == "__main__":
+    setup_reddit()
+    main_loop()
+    # handle_stock_requests("abc", ["ETF110", "FR0010315770", "LU0468897110"])
