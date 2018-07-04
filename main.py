@@ -184,7 +184,7 @@ def handle_submission(sub):
         match_results = list()
         match_results.extend(WKN_PATTERN.findall(com_body))
         match_results.extend(ISIN_PATTERN.findall(com_body))
-        if len(match_results) > 0:
+        if match_results:
             logger.debug("Stock ids found: %s", match_results)
             # TODO: check for existing bot reply
             responded = False
