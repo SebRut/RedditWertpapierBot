@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -32,10 +33,9 @@ Replikationsmethode | {replication_status}
 BOT_DISCLAIMER = """
 """
 
-# TODO: load dynamically
-PROCESSING_INTERVAL = 30
-SUBMISSION_LIMIT = 25
-PRODUCTION = False
+PROCESSING_INTERVAL = os.getenv("RWB_PROCESSING_INTERVAL", 30)
+SUBMISSION_LIMIT = os.getenv("RWB_SUBMISSION_LIMIT", 25)
+PRODUCTION = 'RWB_PRODUCTION' in os.environ
 
 # configure logging
 handler = logging.StreamHandler()
@@ -134,7 +134,7 @@ class RedditWertpapierBot:
             logger.error("Reddit instance is read only")
             exit(-1)
         # get subreddit for processing
-        self.__subreddit = reddit.subreddit("finanzen")
+        self.__subreddit = self.__reddit.subreddit("finanzen")
         if not self.__subreddit:
             logger.error("Subreddit instance is not initialized")
             exit(-1)
