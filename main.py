@@ -74,7 +74,6 @@ def setup_reddit():
         if False:
             logger.info("Getting new reddit instance using data from environment variables")
             # TODO: set up reddit instance
-            pass
         else:
             logger.error("No configuration found")
             exit(-1)
@@ -154,7 +153,6 @@ def handle_stock_requests(comment, matches):
     message = message + BOT_DISCLAIMER
     # reply = reddit.comment(comment).reply(message)
     # logger.info("Replied to %s, reply id: %s", comment, reply.id)
-    pass
 
 
 def handle_submission(sub):
