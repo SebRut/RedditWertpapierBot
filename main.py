@@ -115,14 +115,13 @@ class RedditWertpapierBot:
     def __setup_reddit(self):
         # authenticate against reddit api and obtain an Reddit instance and ref to finanzen subreddit
         # get configuration from praw.INI if existing else try getting data from env vars
-        if Path("praw.INI").is_file():
+        if not Path("praw.INI").is_file():
             logger.info("Getting new reddit instance using data from praw.INI")
             self.__reddit = praw.Reddit("wertpapierbot", user_agent=USER_AGENT)
         else:
-            # TODO: read env vars
-            if False:
+            if not {"praw_client_id", "praw_client_secret", "praw_password", "praw_username"}.difference(os.environ):
                 logger.info("Getting new reddit instance using data from environment variables")
-                # TODO: set up reddit instance
+                praw.Reddit(user_agent=USER_AGENT)
             else:
                 logger.error("No configuration found")
                 exit(-1)
