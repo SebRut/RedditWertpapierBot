@@ -115,7 +115,7 @@ class RedditWertpapierBot:
     def __setup_reddit(self):
         # authenticate against reddit api and obtain an Reddit instance and ref to finanzen subreddit
         # get configuration from praw.INI if existing else try getting data from env vars
-        if not Path("praw.INI").is_file():
+        if Path("praw.INI").is_file():
             logger.info("Getting new reddit instance using data from praw.INI")
             self.__reddit = praw.Reddit("wertpapierbot", user_agent=USER_AGENT)
         else:
@@ -172,7 +172,7 @@ class RedditWertpapierBot:
             comment_queue.extend(com.replies)
 
             # check if the comment is a top level comment and by the bot
-            if not bot_replied and com.depth == 0 and com.author.name == "WertpapierBot":
+            if not bot_replied and com.depth == 0 and com.author.fullname == self.__reddit.user.me().fullname:
                 bot_replied = True
 
             com_body = com.body
@@ -182,12 +182,11 @@ class RedditWertpapierBot:
             match_results.extend(ISIN_PATTERN.findall(com_body))
             if match_results:
                 logger.debug("Stock ids found: %s", match_results)
-                # TODO: check for existing bot reply
                 responded = False
                 for rep in com.replies:
                     if isinstance(rep, MoreComments):
                         continue
-                    if rep.author.name == "WertpapierBot":
+                    if rep.author.fullname == self.__reddit.user.me().fullname:
                         responded = True
                         break
                 if not responded:
