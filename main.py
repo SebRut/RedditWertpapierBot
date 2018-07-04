@@ -99,10 +99,10 @@ def get_fund_data(identifier):
                             cookies={'DisplayUniverse': 'DE-priv', 'PreferredLanguage': 'de', 'PrivacyPolicy': 'true',
                                      'DisclaimerAccepted': 'true'})
     if response.status_code != 200:
-        logger.error("An error occurred while fetching {}: {}".format(url, response.status_code))
+        logger.error("An error occurred while fetching %s: %s", url, response.status_code)
         return
     if response.text.count("Keine Fonds gefunden") > 0:
-        logger.error("Funds with identifier \"{}\" not found".format(identifier))
+        logger.error("Funds with identifier \"%s\" not found", identifier)
         return
 
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -112,31 +112,31 @@ def get_fund_data(identifier):
     if not general_table_rows:
         general_table_rows = soup.select("#product > div.grid-b.float-left > table:nth-of-type(1) > tr")
         if not general_table_rows:
-            logger.warning("No general information found while fetching {}".format(identifier))
+            logger.warning("No general information found while fetching %s", identifier)
             return
     values['name'] = general_table_rows[0].select_one("td.value-cell > a").text.strip()
     values['isin'] = general_table_rows[1].select_one("td.value-cell").text.strip()
     values['wkn'] = general_table_rows[2].select_one("td.value-cell").text.strip()
-    logger.debug("Fonds Name: {}".format(values['name']))
-    logger.debug("Fonds ISIN: {}".format(values['isin']))
-    logger.debug("Fonds WKN: {}".format(values['wkn']))
+    logger.debug("Fonds Name: %s", values['name'])
+    logger.debug("Fonds ISIN: %s", values['isin'])
+    logger.debug("Fonds WKN: %s", values['wkn'])
     values['desc'] = soup.select("#product > div.grid-b.float-left > p:nth-of-type(1)")[0].text.strip()
-    logger.debug("Fonds Description: {}".format(values['desc']))
+    logger.debug("Fonds Description: %s", values['desc'])
 
     details_table_rows = soup.select("#product > div.grid-b.float-left > table:nth-of-type(3) > tr")
     if not details_table_rows:
-        logger.warning("No details available while fetching {}".format(identifier))
+        logger.warning("No details available while fetching %s", identifier)
         return
     values['currency'] = details_table_rows[2].select_one("td.value-cell").text.strip()
     values['distributing'] = details_table_rows[4].select_one("td.value-cell").text.strip()
     values['ter_incl'] = details_table_rows[10].select_one("td.value-cell").text.strip()
     values['domicile'] = details_table_rows[13].select_one("td.value-cell").text.strip()
     values['replication_status'] = details_table_rows[14].select_one("td.value-cell").text.strip()
-    logger.debug("Fonds Currency: {}".format(values['currency']))
-    logger.debug("Distributing: {}".format(values['distributing']))
-    logger.debug("TER including Performance Fee: {}".format(values['ter_incl']))
-    logger.debug("Fonds Domicile: {}".format(values['domicile']))
-    logger.debug("Replication Status: {}".format(values['replication_status']))
+    logger.debug("Fonds Currency: %s", values['currency'])
+    logger.debug("Distributing: %s", values['distributing'])
+    logger.debug("TER including Performance Fee: %s", values['ter_incl'])
+    logger.debug("Fonds Domicile: %s", values['domicile'])
+    logger.debug("Replication Status: %s", values['replication_status'])
     return values
 
 
@@ -150,10 +150,10 @@ def handle_stock_requests(comment, matches):
                 message = message + FUND_INFO_STRING.format(**values)
         except Exception as e:
             logger.error(
-                "An error occurred while gathering funds data for \"{}\": {}".format(match, repr(e)))
+                "An error occurred while gathering funds data for \"%s\": %s", match, repr(e))
     message = message + BOT_DISCLAIMER
     # reply = reddit.comment(comment).reply(message)
-    # logger.debug("Replied to {}, reply id: {}".format(comment, reply.id))
+    # logger.info("Replied to %s, reply id: %s", comment, reply.id)
     pass
 
 
@@ -167,7 +167,7 @@ def handle_submission(sub):
 
     while comment_queue:
         com = comment_queue.pop(0)
-        logger.debug("Parsing comment {}".format(com.id))
+        logger.debug("Parsing comment %s", com.id)
 
         if not com.author:
             continue
@@ -185,7 +185,7 @@ def handle_submission(sub):
         match_results.extend(WKN_PATTERN.findall(com_body))
         match_results.extend(ISIN_PATTERN.findall(com_body))
         if len(match_results) > 0:
-            logger.debug("Stock ids found: {}".format(match_results))
+            logger.debug("Stock ids found: %s", match_results)
             # TODO: check for existing bot reply
             responded = False
             for rep in com.replies:
@@ -203,7 +203,7 @@ def main_loop():
     while True:
         # parse the last 25 submissions in /r/finanzen
         for sub in subreddit.new(limit=SUBMISSION_LIMIT):
-            logger.debug("Parsing submission {}".format(sub))
+            logger.debug("Parsing submission %s", sub)
             handle_submission(sub)
         time.sleep(PROCESSING_INTERVAL)
 
