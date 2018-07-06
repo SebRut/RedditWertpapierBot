@@ -9,8 +9,8 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-VERSION = "0.1.2"
-USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % VERSION
+__version__ = "0.1.2"
+USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % __version__
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
 ISIN_PATTERN = regex.compile(COMMAND_PATTERN + r'([A-Z]{2}\d{10})$', regex.MULTILINE)
@@ -38,7 +38,7 @@ BOT_DISCLAIMER = """
 Ich bin WertpapierBot. Mithilfe von \"!FUND: {WKN|ISIN}\" kannst du mich aufrufen. |
  WertpapierBot %s |
  [Feedback geben](https://www.reddit.com/message/compose/?to=SebRut&subject=WertpapierBot)
-""" % VERSION
+""" % __version__
 
 PROCESSING_INTERVAL = os.getenv("RWB_PROCESSING_INTERVAL", 300)
 SUBMISSION_LIMIT = os.getenv("RWB_SUBMISSION_LIMIT", 25)
