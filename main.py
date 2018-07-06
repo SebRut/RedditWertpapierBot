@@ -9,7 +9,8 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-USER_AGENT = "python-script:wertpapierbot:0.0.1 (by /u/SebRut)"
+VERSION = "0.1.0"
+USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % VERSION
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
 ISIN_PATTERN = regex.compile(COMMAND_PATTERN + r'([A-Z]{2}\d{10})$', regex.MULTILINE)
@@ -28,12 +29,16 @@ Replikationsmethode | {replication_status}
 
 > {desc}
 
+[Fonds bei etfinfo.com]({etfinfourl})
+
+[Fonds bei justETF]({justetfurl})
 ***
 """
 BOT_DISCLAIMER = """
-"""
+Ich bin WertpapierBot. Mithilfe von \"!FUND: {WKN|ISIN}\" kannst du mich aufrufen. | WertpapierBot %s |[Feedback geben](https://www.reddit.com/message/compose/?to=SebRut&subject=WertpapierBot)
+""" % VERSION
 
-PROCESSING_INTERVAL = os.getenv("RWB_PROCESSING_INTERVAL", 30)
+PROCESSING_INTERVAL = os.getenv("RWB_PROCESSING_INTERVAL", 300)
 SUBMISSION_LIMIT = os.getenv("RWB_SUBMISSION_LIMIT", 25)
 PRODUCTION = 'RWB_PRODUCTION' in os.environ
 
@@ -46,7 +51,10 @@ handler.setFormatter(formatter)
 
 # add praw logger
 praw_logger = logging.getLogger('prawcore')
-praw_logger.setLevel(logging.WARN)
+if PRODUCTION:
+    praw_logger.setLevel(logging.WARN)
+else:
+    praw_logger.setLevel(logging.INFO)
 praw_logger.addHandler(handler)
 
 # add self logger
@@ -57,10 +65,17 @@ else:
     logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
+# add logging to log.txt
+if PRODUCTION:
+    fileHandler = logging.FileHandler("log.txt")
+    fileHandler.setFormatter(formatter)
+    fileHandler.setLevel(logging.DEBUG)
+    logger.addHandler(fileHandler)
+
 
 def get_fund_data(identifier):
     url = DATA_URL + identifier
-    values = {}
+    values = {'etfinfourl': url}
     response = requests.get(url, headers={'Accept-Language ': 'de-DE', 'User-Agent': USER_AGENT},
                             cookies={'DisplayUniverse': 'DE-priv', 'PreferredLanguage': 'de',
                                      'PrivacyPolicy': 'true',
@@ -87,6 +102,9 @@ def get_fund_data(identifier):
     logger.debug("Fonds Name: %s", values['name'])
     logger.debug("Fonds ISIN: %s", values['isin'])
     logger.debug("Fonds WKN: %s", values['wkn'])
+
+    values['justetfurl'] = "https://www.justetf.com/de/etf-profile.html?groupField=index&isin=%s" % values['isin']
+
     values['desc'] = soup.select("#product > div.grid-b.float-left > p:nth-of-type(1)")[0].text.strip()
     logger.debug("Fonds Description: %s", values['desc'])
 
@@ -115,16 +133,16 @@ class RedditWertpapierBot:
     def __setup_reddit(self):
         # authenticate against reddit api and obtain an Reddit instance and ref to finanzen subreddit
         # get configuration from praw.INI if existing else try getting data from env vars
-        if Path("praw.INI").is_file():
-            logger.info("Getting new reddit instance using data from praw.INI")
+
+        if not {"praw_client_id", "praw_client_secret", "praw_password", "praw_username"}.difference(os.environ):
+            logger.info("Getting new reddit instance using data from environment variables")
+            praw.Reddit(user_agent=USER_AGENT)
+        elif Path("praw.ini").is_file():
+            logger.info("Getting new reddit instance using data from praw.ini")
             self.__reddit = praw.Reddit("wertpapierbot", user_agent=USER_AGENT)
         else:
-            if not {"praw_client_id", "praw_client_secret", "praw_password", "praw_username"}.difference(os.environ):
-                logger.info("Getting new reddit instance using data from environment variables")
-                praw.Reddit(user_agent=USER_AGENT)
-            else:
-                logger.error("No configuration found")
-                exit(-1)
+            logger.error("No configuration found")
+            exit(-1)
         # basic reddit instance checks
         if not self.__reddit:
             logger.error("Reddit instance is not initialized")
@@ -149,9 +167,10 @@ class RedditWertpapierBot:
             except Exception as e:
                 logger.error(
                     "An error occurred while gathering funds data for \"%s\": %s", match, repr(e))
-        message = message + BOT_DISCLAIMER
-        # reply = self.reddit.comment(comment).reply(message)
-        # logger.info("Replied to %s, reply id: %s", comment, reply.id)
+        if len(message) > 0:
+            message = message + BOT_DISCLAIMER
+            reply = self.__reddit.comment(comment).reply(message)
+            logger.info("Replied to %s, reply id: %s", comment, reply.id)
 
     def __handle_submission(self, sub):
         submission = self.__reddit.submission(id=sub)
@@ -207,6 +226,9 @@ class RedditWertpapierBot:
 
 
 if __name__ == "__main__":
+    if PRODUCTION:
+        logger.info("Running in Production Mode...")
+    else:
+        logger.info("Running in Development Mode...")
     bot = RedditWertpapierBot()
     bot.start()
-    # handle_stock_requests("abc", ["ETF110", "FR0010315770", "LU0468897110"])
