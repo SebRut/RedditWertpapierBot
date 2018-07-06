@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from pathlib import Path
 
 import praw
@@ -9,25 +8,15 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % __version__
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
 ISIN_PATTERN = regex.compile(COMMAND_PATTERN + r'([A-Z]{2}\d{10})$', regex.MULTILINE)
 DATA_URL = "https://www.etfinfo.com/de/product/"
-FUND_INFO_STRING = """**{name}**
+FUND_INFO_STRING = """**{name}** ({isin} / {wkn})
 
-|||
----|----
-ISIN | {isin}
-WKN | {wkn}
-Fondswährung | {currency}
-Ausschüttend | {distributing}
-TER inklusive Performance Fee | {ter_incl}
-Fondsdomizil | {domicile}
-Replikationsmethode | {replication_status}
-
-> {desc}
+{currency} - {distributing} - TER {ter_incl} (inkl. Performance Fee) - {replication_status}
 
 [Fonds bei etfinfo.com]({etfinfourl})
 
@@ -114,7 +103,7 @@ def get_fund_data(identifier):
     details_table_rows = soup.select("#product > div.grid-b.float-left > table:nth-of-type(3) > tr")
     if not details_table_rows:
         logger.warning("No details available while fetching %s", identifier)
-        return
+        return values
     values['currency'] = details_table_rows[2].select_one("td.value-cell").text.strip()
     values['distributing'] = details_table_rows[4].select_one("td.value-cell").text.strip()
     values['ter_incl'] = details_table_rows[10].select_one("td.value-cell").text.strip()
@@ -159,6 +148,8 @@ class RedditWertpapierBot:
             logger.error("Subreddit instance is not initialized")
             exit(-1)
 
+        self.__fullname = self.__reddit.user.me().fullname
+
     # handle a single submission including all comments
     def __handle_stock_requests(self, comment, matches):
         message = ""
@@ -166,9 +157,6 @@ class RedditWertpapierBot:
             try:
                 values = get_fund_data(match)
                 if values:
-                    # cut off description
-                    if len(values['desc']) > RWB_DESCRIPTION_LIMIT:
-                        values['desc'] = " ".join(values['desc'][:(RWB_DESCRIPTION_LIMIT - 3)].split(" ")[0:-2]) + "..."
                     message = message + FUND_INFO_STRING.format(**values)
             except Exception as e:
                 logger.error(
@@ -178,53 +166,34 @@ class RedditWertpapierBot:
             reply = self.__reddit.comment(comment).reply(message)
             logger.info("Replied to %s, reply id: %s", comment, reply.id)
 
-    def __handle_submission(self, sub):
-        submission = self.__reddit.submission(id=sub)
-        submission.comment_sort = "new"
-        submission.comments.replace_more(limit=0)
+    def __handle_comment(self, comment):
+        if not comment.author:
+            return
 
-        bot_replied = False
-        comment_queue = submission.comments[:]
+        com_body = comment.body
 
-        while comment_queue:
-            com = comment_queue.pop(0)
-            logger.debug("Parsing comment %s", com.id)
-
-            if not com.author:
-                continue
-
-            # add sub comments to queue
-            comment_queue.extend(com.replies)
-
-            # check if the comment is a top level comment and by the bot
-            if not bot_replied and com.depth == 0 and com.author.fullname == self.__reddit.user.me().fullname:
-                bot_replied = True
-
-            com_body = com.body
-
-            match_results = list()
-            match_results.extend(WKN_PATTERN.findall(com_body))
-            match_results.extend(ISIN_PATTERN.findall(com_body))
-            if match_results:
-                logger.debug("Stock ids found: %s", match_results)
-                responded = False
-                for rep in com.replies:
-                    if isinstance(rep, MoreComments):
-                        continue
-                    if rep.author.fullname == self.__reddit.user.me().fullname:
-                        responded = True
-                        break
-                if not responded:
-                    self.__handle_stock_requests(com, match_results)
+        match_results = list()
+        match_results.extend(WKN_PATTERN.findall(com_body))
+        match_results.extend(ISIN_PATTERN.findall(com_body))
+        if match_results:
+            logger.debug("Stock ids found: %s", match_results)
+            responded = False
+            comment.refresh()
+            for rep in comment.replies:
+                if isinstance(rep, MoreComments):
+                    continue
+                if rep.author.fullname == self.__fullname:
+                    responded = True
+                    break
+            if not responded:
+                self.__handle_stock_requests(comment, match_results)
 
     def __main_loop(self):
         logger.info("Main loop started")
-        while True:
-            # parse the last 25 submissions in /r/finanzen
-            for sub in self.__subreddit.new(limit=SUBMISSION_LIMIT):
-                logger.debug("Parsing submission %s", sub)
-                self.__handle_submission(sub)
-            time.sleep(PROCESSING_INTERVAL)
+
+        for comment in self.__subreddit.stream.comments():
+            logger.debug("Parsing comment \"%s\"" % comment)
+            self.__handle_comment(comment)
 
     def start(self):
         self.__setup_reddit()
