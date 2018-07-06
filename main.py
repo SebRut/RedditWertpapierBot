@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % VERSION
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
@@ -173,7 +173,7 @@ class RedditWertpapierBot:
             except Exception as e:
                 logger.error(
                     "An error occurred while gathering funds data for \"%s\": %s", match, repr(e))
-        if len(message) > 0:
+        if message:
             message = message + BOT_DISCLAIMER
             reply = self.__reddit.comment(comment).reply(message)
             logger.info("Replied to %s, reply id: %s", comment, reply.id)
