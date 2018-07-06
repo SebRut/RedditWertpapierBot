@@ -192,7 +192,7 @@ class RedditWertpapierBot:
         logger.info("Main loop started")
 
         for comment in self.__subreddit.stream.comments():
-            logger.debug("Parsing comment \"%s\"" % comment)
+            logger.debug("Parsing comment \"%s\"", comment)
             self.__handle_comment(comment)
 
     def start(self):
