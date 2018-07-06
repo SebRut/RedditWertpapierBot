@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % VERSION
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
@@ -35,11 +35,14 @@ Replikationsmethode | {replication_status}
 ***
 """
 BOT_DISCLAIMER = """
-Ich bin WertpapierBot. Mithilfe von \"!FUND: {WKN|ISIN}\" kannst du mich aufrufen. | WertpapierBot %s |[Feedback geben](https://www.reddit.com/message/compose/?to=SebRut&subject=WertpapierBot)
+Ich bin WertpapierBot. Mithilfe von \"!FUND: {WKN|ISIN}\" kannst du mich aufrufen. |
+ WertpapierBot %s |
+ [Feedback geben](https://www.reddit.com/message/compose/?to=SebRut&subject=WertpapierBot)
 """ % VERSION
 
 PROCESSING_INTERVAL = os.getenv("RWB_PROCESSING_INTERVAL", 300)
 SUBMISSION_LIMIT = os.getenv("RWB_SUBMISSION_LIMIT", 25)
+RWB_DESCRIPTION_LIMIT = os.getenv("RWB_DESCRIPTION_LIMIT", 500)
 PRODUCTION = 'RWB_PRODUCTION' in os.environ
 
 # configure logging
@@ -69,7 +72,7 @@ logger.addHandler(handler)
 if PRODUCTION:
     fileHandler = logging.FileHandler("log.txt")
     fileHandler.setFormatter(formatter)
-    fileHandler.setLevel(logging.DEBUG)
+    fileHandler.setLevel(logging.INFO)
     logger.addHandler(fileHandler)
 
 
@@ -163,6 +166,9 @@ class RedditWertpapierBot:
             try:
                 values = get_fund_data(match)
                 if values:
+                    # cut off description
+                    if len(values['desc']) > RWB_DESCRIPTION_LIMIT:
+                        values['desc'] = " ".join(values['desc'][:(RWB_DESCRIPTION_LIMIT - 3)].split(" ")[0:-2]) + "..."
                     message = message + FUND_INFO_STRING.format(**values)
             except Exception as e:
                 logger.error(
