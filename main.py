@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % __version__
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
