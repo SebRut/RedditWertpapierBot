@@ -12,7 +12,7 @@ __version__ = "0.2.0"
 USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % __version__
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
-ISIN_PATTERN = regex.compile(COMMAND_PATTERN + r'([A-Z]{2}\d{10})$', regex.MULTILINE)
+ISIN_PATTERN = regex.compile(COMMAND_PATTERN + r'([A-Z]{2}[A-z,0-9]{10})$', regex.MULTILINE)
 DATA_URL = "https://www.etfinfo.com/de/product/"
 FUND_INFO_STRING = """**{name}** ({isin} / {wkn})
 
