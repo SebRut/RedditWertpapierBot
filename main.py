@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from praw.models import MoreComments
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 USER_AGENT = "python-script:wertpapierbot:%s (by /u/SebRut)" % __version__
 COMMAND_PATTERN = r'^(?:!FUND: )'
 WKN_PATTERN = regex.compile(COMMAND_PATTERN + r'((?:[A-Z]|\d){6})$', regex.MULTILINE)
@@ -16,7 +16,7 @@ ISIN_PATTERN = regex.compile(COMMAND_PATTERN + r'([A-Z]{2}[A-z,0-9]{10})$', rege
 DATA_URL = "https://www.etfinfo.com/de/product/"
 FUND_INFO_STRING = """**{name}** ({isin} / {wkn})
 
-{currency} - {distributing} - TER {ter_incl} (inkl. Performance Fee) - {replication_status}
+{currency} - {distributing} - TER/Laufende Kosten {ter_incl} - {replication_status}
 
 [Fonds bei etfinfo.com]({etfinfourl})
 
@@ -107,6 +107,7 @@ def get_fund_data(identifier):
     values['currency'] = details_table_rows[2].select_one("td.value-cell").text.strip()
     values['distributing'] = details_table_rows[4].select_one("td.value-cell").text.strip()
     values['ter_incl'] = details_table_rows[10].select_one("td.value-cell").text.strip()
+    values['ongoing_charges'] = details_table_rows[11].select_one("td.value-cell").text.strip()
     values['domicile'] = details_table_rows[13].select_one("td.value-cell").text.strip()
     values['replication_status'] = details_table_rows[14].select_one("td.value-cell").text.strip()
     logger.debug("Fonds Currency: %s", values['currency'])
@@ -157,6 +158,13 @@ class RedditWertpapierBot:
             try:
                 values = get_fund_data(match)
                 if values:
+                    if values['ter_incl'] == "-":
+                        if values['ongoing_charges'] != "":
+                            values['ter_incl'] = values['ongoing_charges']
+                        else:
+                            values['ter_incl'] = "Keine Daten vorhanden"
+                    else:
+                        values['ter_incl'] += " (inkl. Performance Fee)"
                     message = message + FUND_INFO_STRING.format(**values)
             except Exception as e:
                 logger.error(
